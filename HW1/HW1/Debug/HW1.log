@@ -1,0 +1,18 @@
+﻿生成启动时间为 2017/3/29 6:49:23。
+     1>项目“C:\Users\John\Desktop\清华学堂\并行计算基础\parallel_server\HW1\HW1\HW1.vcxproj”在节点 2 上(Build 个目标)。
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _LIB /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Yu"stdafx.h" /Fp"Debug\HW1.pch" /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt main.cpp
+         main.cpp
+     1>c:\users\john\desktop\清华学堂\并行计算基础\parallel_server\hw1\hw1\main.cpp(2): warning C4627: “#include <stdlib.h>”:  在查找预编译头使用时跳过
+                 将指令添加到“stdafx.h”或重新生成预编译头
+     1>c:\users\john\desktop\清华学堂\并行计算基础\parallel_server\hw1\hw1\main.cpp(3): warning C4627: “#include <time.h>”:  在查找预编译头使用时跳过
+                 将指令添加到“stdafx.h”或重新生成预编译头
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\John\Desktop\清华学堂\并行计算基础\parallel_server\HW1\Debug\HW1.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\John\Desktop\清华学堂\并行计算基础\parallel_server\HW1\Debug\HW1.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\John\Desktop\清华学堂\并行计算基础\parallel_server\HW1\Debug\HW1.lib" /MACHINE:X86 Debug\main.obj
+         Debug\stdafx.obj
+         HW1.vcxproj -> C:\Users\John\Desktop\清华学堂\并行计算基础\parallel_server\HW1\Debug\HW1.exe
+     1>已完成生成项目“C:\Users\John\Desktop\清华学堂\并行计算基础\parallel_server\HW1\HW1\HW1.vcxproj”(Build 个目标)的操作。
+
+生成成功。
+
+已用时间 00:00:00.70
