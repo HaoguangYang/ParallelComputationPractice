@@ -18,7 +18,9 @@ int main(int argc, char* argv[])
 	{
 		x = (i + .5)*step;
 #pragma omp atomic
-		sum += 4.0/(1.+ x*x);
+		{
+			sum += 4.0/(1.+ x*x);
+		}
 	}
 	
 	pi = sum*step;
