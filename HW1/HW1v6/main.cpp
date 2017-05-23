@@ -58,6 +58,25 @@ void test_CacheOblivious(int S0, int S1,
 }
 
 
+void main_loop(int x0, int x1, int y0, int y1, int z0, int z1){
+    #pragma ivdep
+    for (int x=x0; x<x1; x++){
+        #pragma ivdep
+        for (int y=y0; y<y1; y++){
+            #pragma ivdep
+            for (int z=z0; z<z1; z++){
+                //btemp[x][y][z] = (atemp[x][y][z]+atemp[x][y][z-1]+atemp[x][y][z+1]   \
+                                    +atemp[x][y-1][z]+atemp[x][y+1][z]                 \
+                                    +atemp[x-1][y][z]+atemp[x+1][y][z])*weight;
+                b[x][y][z] = (a[x][y][z]+a[x][y][z-1]+a[x][y][z+1]   \
+                              +a[x][y-1][z]+a[x][y+1][z]             \
+                              +a[x-1][y][z]+a[x+1][y][z])*weight;
+            }
+        }
+    }
+    std::swap(a,b);
+}
+
 void test_Timeskewing(int S){
     //同样没有太大改进。
     int dx0, dx1, dy0, dy1, dz0, dz1;
@@ -66,25 +85,22 @@ void test_Timeskewing(int S){
     for (int k0=1; k0<NZ-1; k0++){
         dz0=1;
         dz1=-1;
-        if (k0==1)
-            dz0=0;
+        //if (k0==1)
+        //    dz0=0;
         if (k0==NZ-2)
             dz1=0;
         for (int j0=1; j0<NY-1; j0++){
             dy0=1;
             dy1=-1;
-            if (j0==1)
-                dy0=0;
+            //if (j0==1)
+            //    dy0=0;
             if (j0==NY-2)
                 dy1=0;
-            for (int i0=1; i0<NX-1; i0++){
+            for (int i0=1; i0<NX-2; i0++){
                 dx0=1;
                 dx1=-1;
-                if (i0==1)
-                    dx0=0;
-                if (i0==NX-2)
-                    dx1=0;
-                
+                //if (i0==1)
+                //    dx0=0;
                 //atemp = a;
                 //btemp = b;
                 //printf("k0=%d    j0=%d    i0=%d\n", k0, j0, i0);
@@ -95,20 +111,20 @@ void test_Timeskewing(int S){
                     x1=max(1, i0+1+t*dx1);
                     y1=max(1, j0+1+t*dy1);
                     z1=max(1, k0+1+t*dz1);
-                    for (int x=x0; x<x1; x++){
-                        for (int y=y0; y<y1; y++){
-                            for (int z=z0; z<z1; z++){
-                                //btemp[x][y][z] = (atemp[x][y][z]+atemp[x][y][z-1]+atemp[x][y][z+1]   \
-                                                  +atemp[x][y-1][z]+atemp[x][y+1][z]                 \
-                                                  +atemp[x-1][y][z]+atemp[x+1][y][z])*weight;
-                                b[x][y][z] = (a[x][y][z]+a[x][y][z-1]+a[x][y][z+1]   \
-                                              +a[x][y-1][z]+a[x][y+1][z]             \
-                                              +a[x-1][y][z]+a[x+1][y][z])*weight;
-                            }
-                        }
-                    }
-                    std::swap(a,b);
+                    main_loop(x0,x1,y0,y1,z0,z1);
                 }
+            }
+            //i0=NX-2
+            //if (i0==NX-2)
+            //    dx1=0;
+            for (int t=0; t<S; t++){
+                x0=max(1, NX-2-t*dx0);
+                y0=max(1, j0-t*dy0);
+                z0=max(1, k0-t*dz0);
+                x1=i0+1;
+                y1=max(1, j0+1+t*dy1);
+                z1=max(1, k0+1+t*dz1);
+                main_loop(x0,x1,y0,y1,z0,z1);
             }
         }
     }
@@ -117,10 +133,11 @@ void test_Timeskewing(int S){
 
 void test_naive(int S){
     //经典循环对串行程序已经有足够好的性能表现。然而对其并行化后发现内存读取延迟造成的影响很大，24线程的实际加速比仅有2～3左右。
-    double weight = 1/7;
     //double*** A[2]={a,b};
     for(int step = 0; step < S; step ++){
+        #pragma ivdep
         for (int i = 1; i < NX-1; i ++){
+            #pragma ivdep
             for(int j = 1; j < NY-1; j ++){
 				#pragma ivdep
                 for(int k = 1; k < NZ-1; k ++){
@@ -177,8 +194,8 @@ void main(int argc, char* argv[]){
     for(int s = 0; s < BATCH; s ++)
     {
         gettimeofday(&t1, NULL);
-        test_naive(loop);
-        //test_Timeskewing(loop);
+        //test_naive(loop);
+        test_Timeskewing(loop);
         //test_CacheOblivious(s*loop, (s+1)*loop, 1, 0, NX-1, 0, 1, 0, NY-1, 0, 1, 0, NZ-1, 0);
         gettimeofday(&t2, NULL);
 		double time = 1.0*((t2).tv_sec - (t1).tv_sec) + 0.000001*((t2).tv_usec - (t1).tv_usec);
