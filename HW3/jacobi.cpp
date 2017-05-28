@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <math.h>
 #include <mpi.h>
+#include <omp.h>
 #define TIME(a,b) (1.0*((b).tv_sec-(a).tv_sec)+0.000001*((b).tv_usec-(a).tv_usec))
 
 
@@ -24,8 +25,8 @@ int size;
 extern "C" {
 #endif
 
-extern int Init(double *data, long long L);
-extern int Check(double *data, long long L);
+//extern int Init(double *data, long long L);
+//extern int Check(double *data, long long L);
 
 #ifdef __cplusplus
 }
@@ -88,6 +89,7 @@ int main(int argc, char* argv[]) {
     double     diffnorm, gdiffnorm;
     double     ***xlocal;
     double     ***xnew;
+	struct timeval t1, t2;
     
     if (argc == 5){
         maxm=atoi(argv[1]);
@@ -104,8 +106,8 @@ int main(int argc, char* argv[]) {
 
     MPI_Comm_rank( MPI_COMM_WORLD, &rank );
     MPI_Comm_size( MPI_COMM_WORLD, &size );
-    if (rank==0) printf("Size:%dx%dx%d, # of Steps: %d, # of procs: %d\n", \
-        maxm, maxn, maxp, loop, size);
+    if (rank==0) printf("Size:%dx%dx%d, # of Steps: %d, # of procs: %d, # of threads per proc: %d\n", \
+        maxm, maxn, maxp, loop, size, omp_get_num_threads());
 
     /* xlocal[][0] is lower ghostpoints, xlocal[][maxn+2] is upper */
 
@@ -121,18 +123,66 @@ int main(int argc, char* argv[]) {
 	MPI_GS1 = floor(maxm/unit_length);
 	MPI_GS2 = floor(maxn/unit_length);
 	MPI_GS3 = floor(maxp/unit_length);
+	if (MPI_GS1 == 0){
+		MPI_GS1 = 1;
+		if (MPI_GS2 == 0){
+			MPI_GS2 = 1;
+			unit_length = maxp/(double)size;
+			MPI_GS3 = floor(maxp/unit_length);
+			if (MPI_GS3 == 0){
+				MPI_GS3 = 1;
+			}
+		}
+		else if (MPI_GS3 == 0){
+			MPI_GS3 = 1;
+			unit_length = maxn/(double)size;
+			MPI_GS2 = std::max(floor(maxn/unit_length),1.0);
+		}
+		else{
+			unit_length = pow(maxn*maxp/(double)size, 1.0/2.0);
+			MPI_GS2 = std::max(floor(maxn/unit_length),1.0);
+			MPI_GS3 =std::max(floor(maxp/unit_length),1.0);
+		}
+	}
+	else if (MPI_GS2 == 0){
+		MPI_GS2 = 1;
+		if (MPI_GS3 == 0){
+			MPI_GS3 = 1;
+			unit_length = maxm/(double)size;
+			MPI_GS1 = std::max(floor(maxm/unit_length),1.0);
+		}
+		else{
+			unit_length = pow(maxm*maxp/(double)size, 1.0/2.0);
+			MPI_GS1 = std::max(floor(maxm/unit_length),1.0);
+			MPI_GS3 = std::max(floor(maxp/unit_length),1.0);
+		}
+	}
+	else if (MPI_GS3 == 0){
+		MPI_GS3 = 1;
+		unit_length = pow(maxm*maxn/(double)size, 1.0/2.0);
+		MPI_GS1 = std::max(floor(maxm/unit_length),1.0);
+		MPI_GS2 = std::max(floor(maxn/unit_length),1.0);
+	}
+	
 	int MPI_Grid1[MPI_GS1+1];
 	int MPI_Grid2[MPI_GS2+1];
 	int MPI_Grid3[MPI_GS3+1];
+
+	if (MPI_GS1*MPI_GS2*MPI_GS3<size) {
+		printf("Improper Cluster Size! Please Utilize More Nodes.\n");
+		return -1;
+	}
 	for (int i=0; i<std::max(std::max(MPI_GS1,MPI_GS2),MPI_GS3); i++){
 		int tmp = unit_length*i;
 		if (i<MPI_GS1)	MPI_Grid1[i] = tmp;
 		if (i<MPI_GS2)	MPI_Grid2[i] = tmp;
 		if (i<MPI_GS3)	MPI_Grid3[i] = tmp;
+		//printf( "%d %d %d %d %d\n", tmp, i, MPI_Grid1[i], MPI_Grid2[i], MPI_Grid3[i]);
 	}
 	MPI_Grid1[MPI_GS1] = maxm;
 	MPI_Grid2[MPI_GS2] = maxn;
 	MPI_Grid3[MPI_GS3] = maxp;
+	//printf( "%d %d %d\n", MPI_Grid3[0], MPI_Grid3[1], MPI_Grid3[2]);
 	
 	int ind1 = rank%MPI_GS1;
 	int ind2 = (rank/MPI_GS1)%MPI_GS2;
@@ -146,18 +196,16 @@ int main(int argc, char* argv[]) {
 	k1 = MPI_Grid3[ind3+1]-MPI_Grid3[ind3];
 	int xsize[3] = {i1+2, j1+2, k1+2};
 	
+	//printf( "%d %d %d %d %f %d %d\n", ind3, xsize[0], xsize[1], xsize[2], unit_length, MPI_Grid1[0], MPI_Grid1[1]);
+	
 	double *data1 = (double *)malloc((i1+2)*(j1+2)*(k1+2)*sizeof(double));
-	double *data2 = (double *)malloc((i1+2)*(j1+2)*(k1+2)*sizeof(double));
 	xlocal = (double***)malloc((i1+2)*sizeof(double**));
-    xnew = (double***)malloc((i1+2)*sizeof(double**));
     for (int i=0; i<i1+2; i++){
 		xlocal[i] = (double**)malloc((j1+2)*sizeof(double*));
-		xnew[i] = (double**)malloc((j1+2)*sizeof(double*));
         for (int j=0; j<j1+2; j++){
             //xlocal[i][j] = (double*)malloc((k1+2)*sizeof(double));
             xlocal[i][j] = &(data1[i*(j1+2)*(k1+2)+j*(k1+2)]);
             //xnew[i][j] = (double*)malloc((k1+2)*sizeof(double));
-            xnew[i][j] = &(data2[i*(j1+2)*(k1+2)+j*(k1+2)]);
 			//printf("%d    %d\n",i,j);
         }
     }
@@ -170,7 +218,19 @@ int main(int argc, char* argv[]) {
 
 	/* Fill the data as specified */
     //InitVal(xlocal, i1, j1, k1, ind1, ind2, ind3);
-    Init(&xlocal[0][0][0], i1*j1*k1);
+    //Init(&xlocal[0][0][0], i1*j1*k1);
+	double sum = 0.0;
+	for (i=i0; i<=i1; i++) {
+		#pragma omp parallel for schedule(guided)
+	    for (j=j0; j<=j1; j++) {
+			gettimeofday(&t1, NULL);
+			srand((unsigned)t1.tv_usec);
+			for (k=k0; k<=k1; k++) {
+				xlocal[i][j][k] = rand()/(double)RAND_MAX-0.500;
+				sum += xlocal[i][j][k];
+			}
+		}
+	}
 	if (rank==0) printf( "Boundaries are set ...\n" );
 	
 	if (ind1 == 0)			i0++;
@@ -179,9 +239,20 @@ int main(int argc, char* argv[]) {
     if (ind2 == MPI_GS2-1) 	j1--;
 	if (ind3 == 0)        	k0++;
     if (ind3 == MPI_GS3-1) 	k1--;	//Filter out boundary
+	
+	double *data2 = (double *)malloc((i1+1-i0)*(j1+1-j0)*(k1+1-k0)*sizeof(double));
+	xnew = (double***)malloc((i1+1-i0)*sizeof(double**));
+	for (int i=0; i<i1+1-i0; i++){
+		xnew[i] = (double**)malloc((j1+1-j0)*sizeof(double*));
+		for (int j=0; j<j1+1-j0; j++){
+			xnew[i][j] = &(data2[i*(j1+1-j0)*(k1+1-k0)+j*(k1+1-k0)]);
+		}
+	}
+	//Init(&xnew[0][0][0], (i1+1-i0)*(j1+1-j0)*(k1+1-k0));
+	
     if (rank == 0) printf( "Initialization Complete...\n" );
-
-	struct timeval t1, t2;
+	//printf( "Initial Sum = %f\n", sum );
+	
     MPI_Barrier(MPI_COMM_WORLD); gettimeofday(&t1, NULL);
     
     
@@ -336,9 +407,9 @@ int main(int argc, char* argv[]) {
 	    for (j=j0; j<=j1; j++) {
 			#pragma ivdep
 			for (k=k0; k<=k1; k++) {
-				xnew[i][j][k] = 0.1*xlocal[i][j+1][k] + 0.1*xlocal[i][j-1][k] + \
-								0.1*xlocal[i+1][j][k] + 0.1*xlocal[i-1][j][k] + \
-								0.1*xlocal[i][j][k+1] + 0.1*xlocal[i][j][k-1] + 0.4*xlocal[i][j][k]);
+				xnew[i-i0][j-j0][k-k0] = 0.1*xlocal[i][j+1][k] + 0.1*xlocal[i][j-1][k] + \
+										 0.1*xlocal[i+1][j][k] + 0.1*xlocal[i-1][j][k] + \
+										 0.1*xlocal[i][j][k+1] + 0.1*xlocal[i][j][k-1] + 0.4*xlocal[i][j][k];
 				//diffnorm += (xnew[i][j][k] - xlocal[i][j][k]) * \
 							(xnew[i][j][k] - xlocal[i][j][k]);
 			}
@@ -346,11 +417,13 @@ int main(int argc, char* argv[]) {
 	}
 	/* Only transfer the interior points */
 	#pragma omp parallel for schedule(guided)
-	for (i=i0; i<=i1; i++) 
-	    for (j=j0; j<=j1; j++) 
-			for (k=k0; k<=k1; k++) 
-				xlocal[i][j][k] = xnew[i][j][k];
-
+	for (i=i0; i<=i1; i++) {
+	    for (j=j0; j<=j1; j++) {
+			for (k=k0; k<=k1; k++) {
+				xlocal[i][j][k] = xnew[i-i0][j-j0][k-k0];
+			}
+		}
+	}
 	//MPI_Allreduce( &diffnorm, &gdiffnorm, 1, MPI_DOUBLE, MPI_SUM, \
 		       MPI_COMM_WORLD );
 	//gdiffnorm = sqrt( gdiffnorm );
@@ -361,7 +434,23 @@ int main(int argc, char* argv[]) {
     MPI_Barrier(MPI_COMM_WORLD); gettimeofday(&t2, NULL);
     
     if (rank==0) printf("Completed %d time steps in %f secs.\n", loop, TIME(t1,t2));
-    Check(&xlocal[0][0][0], xsize[0]*xsize[1]*xsize[2]);
+    
+	//Check(&xnew[0][0][0], (xsize[0]-2)*(xsize[1]-2)*(xsize[2]-2));
+	double sum2 = 0.0;
+	for (i=1; i<=xsize[0]-2; i++) {
+	    for (j=1; j<=xsize[1]-2; j++) {
+			for (k=1; k<=xsize[2]-2; k++) {
+				sum2+=xlocal[i][j][k];
+			}
+		}
+	}
+	//printf( "Final Sum = %f\n", sum2 );
+	double surface = 2*(maxm*maxn+maxn*maxp+maxm*maxp);
+	double diff = fabs(sum-sum2)/surface/loop;
+	//printf( "Average Difference = %f\n", diff );
+	if (diff < 0.001 && surface>1000) printf( "Result is Correct.\n" );
+	else if (surface<=1000) printf("Mesh size is too small for randomness to damp down.\n");
+	else printf("Result is Wrong.\n");
 	//Don't forget to free array!!!
 	free(xlocal);
 	free(xnew);
