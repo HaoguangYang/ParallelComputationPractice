@@ -164,6 +164,7 @@ int main(int argc, char* argv[]) {
 
     MPI_Comm_rank( MPI_COMM_WORLD, &rank );
     MPI_Comm_size( MPI_COMM_WORLD, &size );
+
     if (rank==0) printf("[Information] Size:%dx%dx%d, # of Steps: %d, max # of Procs: %d\n", \
         maxm, maxn, maxp, loop, size);
 
@@ -257,12 +258,11 @@ int main(int argc, char* argv[]) {
 	//printf( "%d %d %d %d %f %d %d\n", ind3, xsize[0], xsize[1], xsize[2], unit_length, MPI_Grid1[0], MPI_Grid1[1]);
 	
 	double *data1 = (double *)malloc((i1+2)*(j1+2)*(k1+2)*sizeof(double));
-	double *data2 = (double *)malloc((i1+2)*(j1+2)*(k1+2)*sizeof(double));
 	xlocal = (double***)malloc((i1+2)*sizeof(double**));
 	xnew = (double***)malloc((i1+2)*sizeof(double**));
+
     for (int i=0; i<i1+2; i++){
 		xlocal[i] = (double**)malloc((j1+2)*sizeof(double*));
-		xnew[i] = (double**)malloc((j1+2)*sizeof(double*));
         for (int j=0; j<j1+2; j++){
             //xlocal[i][j] = (double*)malloc((k1+2)*sizeof(double));
             xlocal[i][j] = &(data1[i*(j1+2)*(k1+2)+j*(k1+2)]);
@@ -291,6 +291,7 @@ int main(int argc, char* argv[]) {
 				//xlocal[i][j][k] = rand()/(double)RAND_MAX-0.500;
 				//Standard rand() is tooooo slow!
 				xlocal[i][j][k] = rand(-1,1);
+
 				sum += xlocal[i][j][k];
 			}
 		}
@@ -309,6 +310,7 @@ int main(int argc, char* argv[]) {
 	//Init(&xnew[0][0][0], (i1+1-i0)*(j1+1-j0)*(k1+1-k0));
 	//printf( "Initial Sum = %f\n", sum );
 	if (rank==0) printf( "[Information] Starting computation ...\n" );
+
     MPI_Barrier(MPI_COMM_WORLD); gettimeofday(&t1, NULL);
     
     
@@ -369,6 +371,7 @@ int main(int argc, char* argv[]) {
 	MPI_Datatype slicej;
 	int subsizej[3] = {xsize[0]-2, 1, xsize[2]-2};
 	//Usage: MPI_Type_create_subarray(2, sizes, subsizes, starts, MPI_ORDER_C, MPI_INT, &newtype);
+
 	if (isActive && ind2 < MPI_GS2 - 1){
 		int starts[3] = {1,j1,1};
 		MPI_Type_create_subarray(3, xsize, subsizej, starts, MPI_ORDER_C, MPI_DOUBLE, &slicej);
@@ -407,6 +410,7 @@ int main(int argc, char* argv[]) {
 	//Dim3
 	MPI_Datatype slicek;
 	int subsizek[3] = {xsize[0]-2, xsize[1]-2, 1};
+
 	if (isActive && ind3 < MPI_GS3 - 1){
 		int starts[3] = {1,1,k1};
 		MPI_Type_create_subarray(3, xsize, subsizek, starts, MPI_ORDER_C, MPI_DOUBLE, &slicek);
@@ -438,6 +442,7 @@ int main(int argc, char* argv[]) {
 	}
 	//printf( "Communication of Dim3 Done\n" );
 	/* Compute new values (but not on boundary) */
+
 	//if (isActive && rank==0) printf( "Communication of timestep %d is done...\n", t );
 	//diffnorm = 0.0;
 	//All Data is Updated
@@ -458,6 +463,7 @@ int main(int argc, char* argv[]) {
 	}
 	/* Only transfer the interior points */
 	/*#pragma omp parallel for schedule(guided)
+
 	for (i=i0; i<=i1; i++) {
 	    for (j=j0; j<=j1; j++) {
 			for (k=k0; k<=k1; k++) {
