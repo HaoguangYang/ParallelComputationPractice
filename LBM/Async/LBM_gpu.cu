@@ -1,3 +1,10 @@
+/*
+ * GPU device code for 2D LBM simulation using asynchronous loading
+ * This code is released under MIT license.
+ * Author: Haoguang Yang
+ * June 20, 2017
+ *
+ */
 #include <stdio.h>
 #include <stdlib.h>
 //#include "GPU_utils.h"

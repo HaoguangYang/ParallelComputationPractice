@@ -7,7 +7,8 @@
  *
  * This code is provided under the MIT license. See LICENSE.txt.
  *
- * Author: Orest Shardt
+ * Original Author: Orest Shardt
+ * Modified by: Haoguang Yang
  *
  */
 #include <stdio.h>

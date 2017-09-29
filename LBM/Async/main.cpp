@@ -7,7 +7,9 @@
  *
  * This code is provided under the MIT license. See LICENSE.txt.
  *
- * Author: Orest Shardt
+ * Orginal Author: Orest Shardt;
+ * Modified by: Haoguang Yang
+ * Acompanies with GPU and MPI code
  *
  */
 #include <stdio.h>
